@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Movies</title>
+<style>
+  :root{--bg:#0f1220;--card:#1a1f35;--ink:#e7e9f3;--muted:#9aa3c7;--accent:#6c8cff;--line:#2a3050;--ok:#3ddc97;--bad:#ff6b6b}
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.5 system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
+  h1{font-size:20px;margin:0;flex:1}
+  #status{font:13px ui-monospace,monospace;color:var(--muted);padding:4px 10px;border:1px solid var(--line);border-radius:999px;white-space:nowrap}
+  #status b{color:var(--ok)} #status.err b{color:var(--bad)}
+  main{max-width:900px;margin:0 auto;padding:24px;display:grid;gap:18px}
+  input{font:inherit;background:#0c0f1c;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 12px}
+  button{font:inherit;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
+  form{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  form input[name=title],form input[name=director]{flex:1;min-width:140px}
+  form input[name=year]{width:100px}
+  .chk{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:14px}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 4px;font-size:16px}
+  .meta{color:var(--muted);font-size:14px}
+  .badge{display:inline-block;margin-top:10px;font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .badge.seen{color:var(--ok);border-color:var(--ok)}
+</style>
+</head>
+<body>
+  <header><h1>🎬 My Movies</h1><span id="status">ready</span></header>
+  <main>
+    <form id="form">
+      <input name="title" placeholder="Title" required>
+      <input name="director" placeholder="Director" required>
+      <input name="year" type="number" placeholder="Year" required>
+      <label class="chk"><input type="checkbox" name="watched"> watched</label>
+      <button type="submit">Add movie</button>
+    </form>
+    <div id="list" class="grid"></div>
+  </main>
+<script>
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const show = (m, p, status, ok) => { const s = $("#status"); s.className = ok ? "" : "err"; s.innerHTML = `${m} ${p} → <b>${status}</b>`; };
+
+  async function api(method, path, body) {
+    const res = await fetch(path, {
+      method,
+      headers: body ? {"Content-Type": "application/json"} : {},
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await res.json().catch(() => null);
+    show(method, path, res.status, res.ok);
+    return { status: res.status, data };
+  }
+
+  const card = m => `<div class="card">
+    <h3>${esc(m.title)}</h3>
+    <div class="meta">${esc(m.director)} · ${m.year}</div>
+    <span class="badge ${m.watched ? "seen" : ""}">${m.watched ? "watched" : "unwatched"}</span>
+  </div>`;
+
+  async function load() {
+    const { data } = await api("GET", "/movies");
+    const movies = data || [];
+    $("#list").innerHTML = movies.length ? movies.map(card).join("") : '<p class="meta">No movies yet.</p>';
+  }
+
+  $("#form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = e.target;
+    const body = { title: f.title.value, director: f.director.value, year: Number(f.year.value), watched: f.watched.checked };
+    const { status } = await api("POST", "/movies", body);
+    if (status === 201) { f.reset(); load(); }
+  });
+
+  load();
+</script>
+</body>
+</html>
